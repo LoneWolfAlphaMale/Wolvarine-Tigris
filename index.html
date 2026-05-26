@@ -400,24 +400,24 @@ textarea.modal-input{resize:vertical;min-height:90px;}
     </div>
     <div id="login-error" class="login-error"><i class="fas fa-times-circle"></i><span id="login-error-msg">Invalid credentials.</span></div>
     <div class="login-field">
-      <label class="login-label" for="login-username">Username</label>
+      <label class="login-label" for="login-username">Email Address</label>
       <div class="login-input-wrap">
         <i class="fas fa-user field-icon"></i>
-        <input class="login-input" type="text" id="login-username" placeholder="Enter your username" autocomplete="off">
+        <input class="login-input" type="email" id="login-username" placeholder="Enter your email address" autocomplete="email">
       </div>
     </div>
     <div class="login-field">
-      <label class="login-label" for="login-password">Password</label>
+      <label class="login-label" for="login-password">6-Digit PIN</label>
       <div class="login-input-wrap">
         <i class="fas fa-lock field-icon"></i>
-        <input class="login-input" type="password" id="login-password" placeholder="Enter your password">
+        <input class="login-input" type="password" id="login-password" placeholder="6-digit PIN (numbers only)" maxlength="6" inputmode="numeric" pattern="\d{6}">
         <button type="button" class="pw-toggle" onclick="togglePwVisibility()"><i class="fas fa-eye" id="pw-toggle-icon"></i></button>
       </div>
     </div>
     <button class="btn-login" onclick="doLogin()">Sign In &nbsp;<i class="fas fa-arrow-right"></i></button>
     <button class="btn-login" onclick="doRegister()" style="margin-top:10px;background:transparent;border:1.5px solid var(--primary);color:var(--primary);box-shadow:none;">New here? Create Account</button>
-    <div class="login-hint" id="login-hint-student">Demo: <span>Shopnil</span> / <span>lumina1234</span> &nbsp;(Student)</div>
-    <div class="login-hint" id="login-hint-teacher" style="display:none">Demo: <span>Mishu</span> / <span>lumina4321</span> &nbsp;(Teacher)</div>
+    <div class="login-hint" id="login-hint-student">Use your real email &amp; a <span>6-digit PIN</span> to register</div>
+    <div class="login-hint" id="login-hint-teacher" style="display:none">Use your real email &amp; a <span>6-digit PIN</span> to register</div>
   </div>
 </div>
 
@@ -910,27 +910,33 @@ let selectedRole='student';
 function selectRole(r){
   selectedRole=r;
   ['student','teacher'].forEach(x=>document.getElementById('role-'+x).classList.toggle('active',x===r));
-  document.getElementById('login-hint-student').style.display=r==='student'?'block':'none';
-  document.getElementById('login-hint-teacher').style.display=r==='teacher'?'block':'none';
+  document.getElementById('login-hint-student').style.display='block';
+  document.getElementById('login-hint-teacher').style.display='block';
   document.getElementById('login-username').value='';
   document.getElementById('login-password').value='';
   document.getElementById('login-error').classList.remove('show');
 }
 
 async function doLogin(){
-  const username=(document.getElementById('login-username').value||'').trim();
+  const email=(document.getElementById('login-username').value||'').trim().toLowerCase();
   const password=document.getElementById('login-password').value||'';
   const err=document.getElementById('login-error');
   const btn=document.querySelector('.btn-login');
-  if(!username||!password){
-    document.getElementById('login-error-msg').textContent='Please enter username and password.';
+  if(!email||!password){
+    document.getElementById('login-error-msg').textContent='Please enter your email and PIN.';
+    err.classList.add('show');return;
+  }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    document.getElementById('login-error-msg').textContent='Please enter a valid email address.';
+    err.classList.add('show');return;
+  }
+  if(!/^\d{6}$/.test(password)){
+    document.getElementById('login-error-msg').textContent='PIN must be exactly 6 digits.';
     err.classList.add('show');return;
   }
   // Show loading state
   btn.textContent='Signing in…';btn.disabled=true;
   try{
-    // Sign in with email convention: username@luminalms.app
-    const email=username.toLowerCase()+'@luminalms.app';
     const {data,error}=await _supa.auth.signInWithPassword({email,password});
     if(error){throw error;}
     // Fetch profile
@@ -985,25 +991,30 @@ async function doLogout(){
 
 // ── REGISTER (new user signup) ──────────────────────────────────
 async function doRegister(){
-  const username=(document.getElementById('login-username').value||'').trim();
+  const email=(document.getElementById('login-username').value||'').trim().toLowerCase();
   const password=document.getElementById('login-password').value||'';
   const err=document.getElementById('login-error');
-  if(!username||!password){
-    document.getElementById('login-error-msg').textContent='Enter a username and password to register.';
+  if(!email||!password){
+    document.getElementById('login-error-msg').textContent='Enter your email and a 6-digit PIN to register.';
     err.classList.add('show');return;
   }
-  if(password.length<6){
-    document.getElementById('login-error-msg').textContent='Password must be at least 6 characters.';
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    document.getElementById('login-error-msg').textContent='Please enter a valid email address.';
     err.classList.add('show');return;
   }
-  const initials=username.slice(0,2).toUpperCase();
-  const email=username.toLowerCase()+'@luminalms.app';
+  if(!/^\d{6}$/.test(password)){
+    document.getElementById('login-error-msg').textContent='PIN must be exactly 6 digits (e.g. 123456).';
+    err.classList.add('show');return;
+  }
+  const username=email.split('@')[0];
+  const display=username.charAt(0).toUpperCase()+username.slice(1);
+  const initials=display.slice(0,2).toUpperCase();
   const btn=document.querySelector('.btn-login');
   btn.textContent='Creating account…';btn.disabled=true;
   try{
     const {data,error}=await _supa.auth.signUp({
       email,password,
-      options:{data:{username,display:username,initials,role:selectedRole}}
+      options:{data:{username,display,initials,role:selectedRole}}
     });
     if(error)throw error;
     if(data.user&&!data.session){
